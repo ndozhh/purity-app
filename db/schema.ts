@@ -1,32 +1,33 @@
-import {
-  sqliteTable,
-  text,
-  integer,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { createId } from "@paralleldrive/cuid2";
+import { relations, sql } from "drizzle-orm";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const countries = sqliteTable(
-  "countries",
-  {
-    id: integer("id").primaryKey(),
-    name: text("name"),
-  },
-  (countries) => ({
-    nameIdx: uniqueIndex("nameIdx").on(countries.name),
-  })
-);
-
-export const cities = sqliteTable("cities", {
-  id: integer("id").primaryKey(),
+export const User = sqliteTable("User", {
+  id: text("id")
+    .$defaultFn(() => createId())
+    .primaryKey(),
+  createdAt: text("createdAt").default(sql`(CURRENT_TIMESTAMP)`),
+  updatedAt: text("updatedAt").default(sql`(CURRENT_TIMESTAMP)`),
   name: text("name"),
-  countryId: integer("country_id").references(() => countries.id),
+  email: text("email").unique(),
 });
 
-export const users = sqliteTable("users", {
-  id: integer("id").primaryKey(),
-  fullName: text("full_name"),
-  phone: text("phone"),
+export const Password = sqliteTable("Password", {
+  id: text("id")
+    .$defaultFn(() => createId())
+    .primaryKey(),
+  hash: text("hash"),
+  userId: text("userId")
+    .references(() => User.id, { onDelete: "cascade" })
+    .notNull(),
 });
 
-export type User = typeof users.$inferSelect; // return type when queried
-export type InsertUser = typeof users.$inferInsert; // insert type
+export const UserRelations = relations(User, ({ one }) => ({
+  password: one(Password, {
+    fields: [User.id],
+    references: [Password.userId],
+  }),
+}));
+
+export type User = typeof User.$inferSelect; // return type when queried
+export type InsertUser = typeof User.$inferInsert; // insert type

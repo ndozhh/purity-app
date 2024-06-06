@@ -1,9 +1,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ActionFunctionArgs, json } from "@remix-run/node";
+import {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  json,
+  redirect,
+} from "@remix-run/node";
 import { Form, Link } from "@remix-run/react";
 import clsx from "clsx";
 import { getValidatedFormData, useRemixForm } from "remix-hook-form";
 import { z } from "zod";
+import { db } from "~/db/instance";
+import { Password, User } from "~/db/schema";
+import { hashPassword } from "~/utils/auth.server";
+import { commitSession, getSession } from "~/utils/session.server";
 
 const SignupSchema = z.object({
   name: z.string().min(3),
@@ -14,6 +23,16 @@ const SignupSchema = z.object({
 type FormData = z.infer<typeof SignupSchema>;
 
 const resolver = zodResolver(SignupSchema);
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const session = await getSession(request.headers.get("cookie"));
+
+  if (session.get("user")) {
+    return redirect("/dashboard");
+  }
+
+  return null;
+}
 
 export async function action({ request }: ActionFunctionArgs) {
   const {
@@ -26,7 +45,26 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ errors, defaultValues });
   }
 
-  return json(data);
+  const session = await getSession(request.headers.get("cookie"));
+
+  // Create a new user
+  const [user] = await db
+    .insert(User)
+    .values({ name: data.name, email: data.email })
+    .returning();
+
+  await db
+    .insert(Password)
+    .values({ hash: await hashPassword(data.password), userId: user.id })
+    .run();
+
+  session.set("user", user);
+
+  return redirect("/dashboard", {
+    headers: {
+      "set-cookie": await commitSession(session),
+    },
+  });
 }
 
 export default function Signup() {

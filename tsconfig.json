@@ -24,7 +24,8 @@
     "baseUrl": ".",
     "paths": {
       "~/*": ["./app/*"],
-      "~/db/*": ["./db"]
+      "~/db/instance": ["./db/instance"],
+      "~/db/schema": ["./db/schema"]
     },
 
     // Vite takes care of building everything, not tsc.
