@@ -6,7 +6,7 @@ export const meta: MetaFunction = () => {
 
 export default function Index() {
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
+    <div>
       <h1 className="text-2xl font-nunito font-normal">
         Sphinx of black quartz, judge my vow.
       </h1>
