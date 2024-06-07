@@ -5,13 +5,13 @@ import {
   json,
   redirect,
 } from "@remix-run/node";
-import { Form, Link } from "@remix-run/react";
+import { Form, Link, useNavigation } from "@remix-run/react";
 import clsx from "clsx";
 import { getValidatedFormData, useRemixForm } from "remix-hook-form";
 import { z } from "zod";
 import { db } from "~/db/instance";
 import { Password, User } from "~/db/schema";
-import { hashPassword } from "~/utils/auth.server";
+import { hashPassword, requireAnonymous } from "~/utils/auth.server";
 import { commitSession, getSession } from "~/utils/session.server";
 
 const SignupSchema = z.object({
@@ -25,11 +25,7 @@ type FormData = z.infer<typeof SignupSchema>;
 const resolver = zodResolver(SignupSchema);
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const session = await getSession(request.headers.get("cookie"));
-
-  if (session.get("user")) {
-    return redirect("/dashboard");
-  }
+  await requireAnonymous(request);
 
   return null;
 }
@@ -55,8 +51,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   await db
     .insert(Password)
-    .values({ hash: await hashPassword(data.password), userId: user.id })
-    .run();
+    .values({ hash: await hashPassword(data.password), userId: user.id });
 
   session.set("user", user);
 
@@ -68,6 +63,9 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Signup() {
+  const navigation = useNavigation();
+  const isSubmitting = navigation.formAction === "/auth/signup";
+
   const {
     register,
     handleSubmit,
@@ -155,7 +153,14 @@ export default function Signup() {
               </div>
             ) : null}
           </label>
-          <button className="btn btn-info mt-9 rounded-2xl" type="submit">
+          <button
+            disabled={isSubmitting}
+            className="btn btn-info mt-9 rounded-2xl"
+            type="submit"
+          >
+            {isSubmitting ? (
+              <span className="loading loading-spinner"></span>
+            ) : null}
             Crear cuenta
           </button>
         </Form>

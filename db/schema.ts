@@ -30,4 +30,3 @@ export const UserRelations = relations(User, ({ one }) => ({
 }));
 
 export type User = typeof User.$inferSelect; // return type when queried
-export type InsertUser = typeof User.$inferInsert; // insert type
