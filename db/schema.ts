@@ -16,7 +16,7 @@ export const Password = sqliteTable("Password", {
   id: text("id")
     .$defaultFn(() => createId())
     .primaryKey(),
-  hash: text("hash"),
+  hash: text("hash").notNull(),
   userId: text("userId")
     .references(() => User.id, { onDelete: "cascade" })
     .notNull(),

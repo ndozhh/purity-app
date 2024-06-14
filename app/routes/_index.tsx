@@ -1,15 +1,8 @@
-import type { MetaFunction } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "@remix-run/node";
+import { requireUser } from "~/utils/auth.server";
 
-export const meta: MetaFunction = () => {
-  return [{ title: "Purity ✨" }];
-};
+export async function loader({ request }: LoaderFunctionArgs) {
+  await requireUser(request);
 
-export default function Index() {
-  return (
-    <div>
-      <h1 className="text-2xl font-nunito font-normal">
-        Sphinx of black quartz, judge my vow.
-      </h1>
-    </div>
-  );
+  return null;
 }

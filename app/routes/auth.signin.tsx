@@ -2,27 +2,35 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ActionFunctionArgs,
   LoaderFunctionArgs,
+  MetaFunction,
   json,
   redirect,
 } from "@remix-run/node";
-import { Form, Link, useNavigation } from "@remix-run/react";
+import { Form, Link, useActionData, useNavigation } from "@remix-run/react";
 import clsx from "clsx";
+import { eq } from "drizzle-orm";
 import { getValidatedFormData, useRemixForm } from "remix-hook-form";
 import { z } from "zod";
 import { db } from "~/db/instance";
-import { Password, User } from "~/db/schema";
-import { hashPassword, requireAnonymous } from "~/utils/auth.server";
+import { User } from "~/db/schema";
+import { requireAnonymous, verifyPassword } from "~/utils/auth.server";
 import { commitSession, getSession } from "~/utils/session.server";
 
-const SignupSchema = z.object({
-  name: z.string().min(3),
+const SigninSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
 
-type FormData = z.infer<typeof SignupSchema>;
+type FormData = z.infer<typeof SigninSchema>;
+type ActionData = {
+  error?: string;
+};
 
-const resolver = zodResolver(SignupSchema);
+const resolver = zodResolver(SigninSchema);
+
+export const meta: MetaFunction = () => {
+  return [{ title: "Iniciar sesión | Purity ✨" }];
+};
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireAnonymous(request);
@@ -43,16 +51,43 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const session = await getSession(request.headers.get("cookie"));
 
-  // Create a new user
-  const [user] = await db
-    .insert(User)
-    .values({ name: data.name, email: data.email })
-    .returning();
+  // Find user by email
+  const user = await db.query.User.findFirst({
+    where: eq(User.email, data.email),
+    with: {
+      password: true,
+    },
+  });
 
-  await db
-    .insert(Password)
-    .values({ hash: await hashPassword(data.password), userId: user.id });
+  if (!user) {
+    return json(
+      {
+        error: "Credenciales incorrectas",
+      },
+      {
+        status: 404,
+      }
+    );
+  }
 
+  // Check password
+  const isPasswordValid = await verifyPassword(
+    data.password,
+    user.password.hash
+  );
+
+  if (!isPasswordValid) {
+    return json(
+      {
+        error: "Credenciales incorrectas",
+      },
+      {
+        status: 404,
+      }
+    );
+  }
+
+  // Set user in session
   session.set("user", user);
 
   return redirect("/dashboard", {
@@ -63,8 +98,9 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Signin() {
+  const actionData = useActionData<ActionData>();
   const navigation = useNavigation();
-  const isSubmitting = navigation.formAction === "/auth/signup";
+  const isSubmitting = navigation.formAction === "/auth/signin";
 
   const {
     register,
@@ -78,6 +114,24 @@ export default function Signin() {
   return (
     <div className="w-full h-full flex items-center justify-center">
       <div className="card w-[28rem] bg-white shadow-lg h-[44rem] p-12">
+        {actionData?.error ? (
+          <div role="alert" className="alert alert-error mb-8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="stroke-current shrink-0 h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span>{actionData.error}</span>
+          </div>
+        ) : null}
         <h3 className="text-4xl text-slate-800 text-center font-semibold">
           Ingresa a tu cuenta
         </h3>

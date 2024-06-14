@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ActionFunctionArgs,
   LoaderFunctionArgs,
+  MetaFunction,
   json,
   redirect,
 } from "@remix-run/node";
@@ -23,6 +24,10 @@ const SignupSchema = z.object({
 type FormData = z.infer<typeof SignupSchema>;
 
 const resolver = zodResolver(SignupSchema);
+
+export const meta: MetaFunction = () => {
+  return [{ title: "Crear cuenta | Purity ✨" }];
+};
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireAnonymous(request);
